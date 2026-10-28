@@ -7,7 +7,9 @@ package com.example.rag.http;
  */
 public class ApiException extends RuntimeException {
 
+    /** HTTP 状态码；-1 表示没拿到状态码（网络异常/序列化失败/线程中断），selftest 依赖它区分确定性错误 */
     public final int statusCode;
+    /** 服务端原始响应体（未截断），仅用于排障；异常 message 里只保留前 500 字 */
     public final String responseBody;
 
     public ApiException(int statusCode, String responseBody) {

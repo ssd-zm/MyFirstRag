@@ -15,6 +15,7 @@ import java.util.stream.Stream;
  */
 public class MarkdownLoader {
 
+    /** 允许入索引的扩展名白名单，逐个做小写后缀匹配；不在名单内的文件（含图片、pdf）直接跳过 */
     private static final String[] EXTENSIONS = {".md", ".markdown", ".txt"};
 
     public List<FileText> loadAll(Path notesDir) {

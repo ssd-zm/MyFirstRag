@@ -30,11 +30,16 @@ public final class HttpTransport {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
+    /** 单个请求最多重试次数（不含首次），只对 429/5xx/网络异常生效，401/400/404 立即失败 */
     private static final int MAX_RETRIES = 3;
 
+    /** Jackson 读写 JSON 的入口，无状态可复用；请求体序列化和响应体解析都用它 */
     private final ObjectMapper mapper = new ObjectMapper();
+    /** 服务根地址，构造时已去掉结尾 /，post() 里直接与 path 拼接，避免拼出 //embeddings */
     private final String baseUrl;
+    /** Bearer token，每个请求都放进 Authorization 头；为空时服务端会返回 401 */
     private final String apiKey;
+    /** 为 true 时把每次成功请求的状态码与耗时打到 stderr，便于定位慢调用 */
     private final boolean debug;
 
     public HttpTransport(String baseUrl, String apiKey, boolean debug) {

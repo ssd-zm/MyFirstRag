@@ -13,9 +13,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class ChatClient {
 
+    /** 网络层，指向对话服务的 chatBaseUrl；本类只调 post("/chat/completions") */
     private final HttpTransport http;
+    /** 构造请求体用的 Jackson 实例 */
     private final ObjectMapper mapper = new ObjectMapper();
+    /** 对话模型名，随每次请求的 model 字段上报，决定服务端选哪个模型 */
     private final String model;
+    /** 本实例累计消耗的 total_tokens（多次 chat 累加），只用于打印成本，不参与业务逻辑 */
     private long totalTokens = 0;
 
     public ChatClient(HttpTransport http, String model) {

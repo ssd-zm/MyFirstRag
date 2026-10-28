@@ -18,7 +18,15 @@ import java.util.List;
  */
 public class TextSplitter {
 
-    private record Seg(String text, int start, int end, String heading) {}
+    private record Seg(
+            /** 段落正文，已 strip，可能是一句也可能是多句 */
+            String text,
+            /** 段落首行在原文中的 0-based 行号，最终 +1 写入 Chunk.lineFrom */
+            int start,
+            /** 段落末行在原文中的 0-based 行号，超长段落拆出的各子块共用该值 */
+            int end,
+            /** 段落所属的 Markdown 标题整行（含 #），空串表示位于任何标题之前；会作为 chunk 正文前缀 */
+            String heading) {}
 
     public List<Chunk> split(FileText file, int chunkChars, int overlapChars) {
         List<Seg> segs = paragraphs(file.content(), chunkChars);

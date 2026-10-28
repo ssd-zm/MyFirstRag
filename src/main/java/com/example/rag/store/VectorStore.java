@@ -22,7 +22,9 @@ import java.util.List;
  */
 public class VectorStore {
 
+    /** JSON 读写用的 Jackson 实例，只做数据绑定；此类无状态配置，多个实例共用同一份即可 */
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    /** 全量切片索引，内存中线性存放，检索时逐个扫过；未建 ANN/倒排，几万条以内够用 */
     private final List<Chunk> chunks = new ArrayList<>();
 
     public void addAll(List<Chunk> list) {

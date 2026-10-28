@@ -20,10 +20,15 @@ import java.util.List;
  */
 public class EmbeddingClient {
 
+    /** 网络层，指向向量化服务的 embedBaseUrl；本类只调 post("/embeddings") */
     private final HttpTransport http;
+    /** 构造请求体用的 Jackson 实例 */
     private final ObjectMapper mapper = new ObjectMapper();
+    /** 向量化模型名，随每次请求的 model 字段上报，决定向量维度 */
     private final String model;
+    /** 每批请求的文本条数，构造时已夹到 >= 1；embedBatch 按它切片调用，避免触发服务端条数上限 */
     private final int batch;
+    /** 本实例累计消耗的 total_tokens（多批累加），用于估算建索引成本 */
     private long totalTokens = 0;
 
     public EmbeddingClient(HttpTransport http, String model, int batch) {

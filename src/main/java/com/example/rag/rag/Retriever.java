@@ -12,7 +12,9 @@ import java.util.List;
  */
 public class Retriever {
 
+    /** 向量化客户端，retrieve 时把清洗后的问题转成查询向量，会消耗 embedding tokens */
     private final EmbeddingClient embedder;
+    /** 已加载的向量库，只用到 search(float[], int) 这一签名，不关心底层存储实现 */
     private final VectorStore store;
 
     public Retriever(EmbeddingClient embedder, VectorStore store) {
