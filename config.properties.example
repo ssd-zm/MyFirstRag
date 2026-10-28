@@ -1,0 +1,23 @@
+# 复制此文件为 config.properties 并填写 apiKey
+# 也可以用环境变量覆盖：RAG_BASE_URL / RAG_API_KEY / RAG_EMBED_MODEL / RAG_CHAT_MODEL
+
+# 任意 OpenAI 兼容服务，注意结尾不要加 /embeddings
+baseUrl=https://api.siliconflow.cn/v1
+apiKey=
+
+# 百炼可用：https://dashscope.aliyuncs.com/compatible-mode/v1
+#   embedModel=text-embedding-v3  chatModel=qwen-plus
+# 智谱可用：https://open.bigmodel.cn/api/paas/v4
+#   embedModel=embedding-3  chatModel=glm-4-flash
+
+embedModel=BAAI/bge-m3
+chatModel=Qwen/Qwen2.5-7B-Instruct
+
+# 切片与检索参数
+chunkChars=500
+overlapChars=80
+topK=4
+embedBatch=16
+
+# 打印每次 HTTP 请求的耗时与重试过程
+debug=true
