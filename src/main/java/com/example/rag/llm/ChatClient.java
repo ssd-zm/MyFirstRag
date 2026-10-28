@@ -1,6 +1,5 @@
 package com.example.rag.llm;
 
-import com.example.rag.config.AppConfig;
 import com.example.rag.http.ApiException;
 import com.example.rag.http.HttpTransport;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,48 +8,45 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * 调用 /chat/completions。第一版不做流式，先保证结果正确。
+ * 对话补全客户端：只做最简单的单轮 system+user 调用。
+ * 打印每次耗时与 token 用量——成本可视化是手写封装的基本待遇。
  */
-public final class ChatClient {
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+public class ChatClient {
 
     private final HttpTransport http;
+    private final ObjectMapper mapper = new ObjectMapper();
     private final String model;
-    private final boolean debug;
+    private long totalTokens = 0;
 
-    public ChatClient(HttpTransport http, AppConfig config) {
+    public ChatClient(HttpTransport http, String model) {
         this.http = http;
-        this.model = config.chatModel();
-        this.debug = config.debug();
+        this.model = model;
     }
 
-    public String chat(String prompt) {
-        ArrayNode messages = MAPPER.createArrayNode();
-        messages.addObject()
-                .put("role", "system")
-                .put("content", "你是一个严谨的技术助手，只依据给定资料作答，资料里没有的内容绝不编造。");
-        messages.addObject()
-                .put("role", "user")
-                .put("content", prompt);
+    public long totalTokens() {
+        return totalTokens;
+    }
 
-        ObjectNode body = MAPPER.createObjectNode();
+    public String chat(String systemPrompt, String userPrompt) {
+        ObjectNode body = mapper.createObjectNode();
         body.put("model", model);
-        body.set("messages", messages);
-        body.put("temperature", 0.2);
+        body.put("temperature", 0.2);   // 资料问答要稳定，不要发散
+        ArrayNode messages = body.putArray("messages");
+        messages.addObject().put("role", "system").put("content", systemPrompt);
+        messages.addObject().put("role", "user").put("content", userPrompt);
 
-        JsonNode response = http.post("/chat/completions", body);
-        JsonNode choices = response.path("choices");
-        if (!choices.isArray() || choices.isEmpty()) {
-            throw new ApiException(0, "chat 响应缺少 choices：" + response);
+        long start = System.nanoTime();
+        JsonNode resp = http.post("/chat/completions", body, 60);
+        long ms = (System.nanoTime() - start) / 1_000_000;
+
+        long tokens = resp.path("usage").path("total_tokens").asLong(0);
+        totalTokens += tokens;
+
+        String content = resp.path("choices").path(0).path("message").path("content").asText(null);
+        if (content == null) {
+            throw new ApiException(-1, "chat 响应缺少 choices[0].message.content，原始响应: " + resp);
         }
-        if (debug) {
-            JsonNode usage = response.path("usage");
-            System.out.printf("[chat] total_tokens=%d prompt_tokens=%d completion_tokens=%d%n",
-                    usage.path("total_tokens").asInt(),
-                    usage.path("prompt_tokens").asInt(),
-                    usage.path("completion_tokens").asInt());
-        }
-        return choices.get(0).path("message").path("content").asText("").strip();
+        System.err.printf("[chat] %dms, %d tokens (累计 %d)%n", ms, tokens, totalTokens);
+        return content;
     }
 }

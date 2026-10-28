@@ -1,191 +1,141 @@
 package com.example.rag.ingest;
 
+import com.example.rag.store.Chunk;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 按段落切块，保留 Markdown 标题与起始行号；超长段落按中文句末标点再切一刀。
- * 相邻块之间用「上一块尾部 N 个字符」做重叠，避免答案刚好落在边界上被切断。
+ * 切分器（三步）：
+ * 1) 按标题与空行取段（段带所属标题与行号）
+ * 2) 超过 chunkChars 的段按句末标点（。！？；!?;）细切，不能按字符数硬切中文
+ * 3) 合并段为 <= chunkChars 的 chunk，并把上一块末尾 overlapChars 字作为下一块开头
+ * <p>
+ * 设计取舍：
+ * - chunk 正文前缀所属标题，显著提升检索命中率（标题就是主题）
+ * - 行号指向 chunk 自身内容起点（overlap/标题前缀不计入），引用定位足够准
+ * - 超长段落的句子子块共用段落行号，引用可能有 ±几行误差，v1 可接受
  */
-public final class TextSplitter {
+public class TextSplitter {
 
-    public record Piece(String text, int lineFrom) {
-    }
+    private record Seg(String text, int start, int end, String heading) {}
 
-    private static final char[] SENTENCE_ENDS = {'。', '！', '？', '；', '\n'};
+    public List<Chunk> split(FileText file, int chunkChars, int overlapChars) {
+        List<Seg> segs = paragraphs(file.content(), chunkChars);
+        List<Chunk> out = new ArrayList<>();
+        String fileName = file.path().getFileName().toString();
+        String path = file.path().toString();
 
-    private final int chunkChars;
-    private final int overlapChars;
+        StringBuilder cur = new StringBuilder();
+        int curStart = -1, curEnd = -1;
+        String curHeading = "";
+        String prevTail = "";          // 上一块的末尾，用作同主题下一块的 overlap
+        String prevTailHeading = "";
 
-    public TextSplitter(int chunkChars, int overlapChars) {
-        this.chunkChars = Math.max(100, chunkChars);
-        this.overlapChars = Math.max(0, Math.min(overlapChars, this.chunkChars / 2));
-    }
-
-    public List<Piece> split(String content) {
-        List<Piece> blocks = toBlocks(content);
-        List<Piece> pieces = new ArrayList<>();
-        int index = 0;
-        String carryText = "";
-        int carryLine = 0;
-
-        while (index < blocks.size()) {
-            StringBuilder buffer = new StringBuilder();
-            int startLine = -1;
-
-            // 只有重叠部分加上下一段还放得下时才带上，保证每轮至少吃掉一个段落，不会死循环
-            if (!carryText.isEmpty()
-                    && carryText.length() + blocks.get(index).text().length() + 1 <= chunkChars) {
-                buffer.append(carryText);
-                startLine = carryLine;
+        for (Seg seg : segs) {
+            boolean topicChanged = !seg.heading().equals(curHeading);
+            boolean needFlush = cur.length() > 0
+                    && (cur.length() + seg.text().length() + 1 > chunkChars || topicChanged);
+            if (needFlush) {
+                out.add(make(fileName, path, cur.toString(), curStart, curEnd, curHeading, prevTail));
+                prevTail = overlapTail(cur.toString(), overlapChars);
+                prevTailHeading = curHeading;
+                cur.setLength(0);
             }
-
-            int cursor = index;
-            while (cursor < blocks.size()) {
-                Piece block = blocks.get(cursor);
-                if (buffer.length() > 0 && buffer.length() + block.text().length() > chunkChars) {
-                    break;
+            if (cur.length() == 0) {
+                curStart = seg.start();
+                curHeading = seg.heading();
+                if (!seg.heading().equals(prevTailHeading)) {
+                    prevTail = "";     // 换主题了，上一主题的尾巴不能带过来
                 }
-                if (startLine < 0) {
-                    startLine = block.lineFrom();
-                }
-                if (buffer.length() > 0) {
-                    buffer.append('\n');
-                }
-                buffer.append(block.text());
-                cursor++;
             }
-
-            if (startLine < 0) {
-                startLine = blocks.get(index).lineFrom();
-            }
-            String text = buffer.toString().strip();
-            if (!text.isEmpty()) {
-                pieces.add(new Piece(text, startLine));
-            }
-
-            carryText = overlapOf(buffer);
-            int keep = buffer.length() - carryText.length();
-            carryLine = startLine + countNewlines(buffer.substring(0, Math.max(0, keep)));
-            index = Math.max(cursor, index + 1);
+            cur.append(seg.text()).append('\n');
+            curEnd = seg.end();
         }
-        return pieces;
+        if (cur.length() > 0) {
+            out.add(make(fileName, path, cur.toString(), curStart, curEnd, curHeading, prevTail));
+        }
+        return out;
     }
 
-    /** 先按标题/空行切成段落，再把超长段落单独切开。 */
-    private List<Piece> toBlocks(String content) {
-        List<Piece> blocks = new ArrayList<>();
-        String[] lines = content.split("\n", -1);
-        StringBuilder current = new StringBuilder();
-        int currentStart = 1;
-        boolean inFence = false;
-        boolean justAfterHeading = false;
+    private static Chunk make(String fileName, String path, String content,
+                              int start0, int end0, String heading, String overlap) {
+        StringBuilder body = new StringBuilder();
+        if (!overlap.isEmpty()) body.append(overlap).append('\n');
+        if (!heading.isEmpty()) body.append(heading).append('\n');
+        body.append(content.strip());
+        int from = start0 + 1;     // 0-based 转 1-based
+        int to = end0 + 1;
+        return new Chunk(fileName + ":" + from, path, from, to, body.toString(), null);
+    }
+
+    private static String overlapTail(String text, int n) {
+        String t = text.strip();
+        if (n <= 0 || t.length() <= n) return "";
+        return t.substring(t.length() - n);
+    }
+
+    // ---------- 第 1、2 步：取段 ----------
+
+    private static List<Seg> paragraphs(String content, int chunkChars) {
+        List<Seg> segs = new ArrayList<>();
+        String[] lines = content.split("\\R");
+        String heading = "";
+        StringBuilder buf = new StringBuilder();
+        int start = -1, end = -1;
 
         for (int i = 0; i < lines.length; i++) {
-            int lineNo = i + 1;
-            String line = lines[i].replace("\r", "");
-            if (line.stripLeading().startsWith("```")) {
-                inFence = !inFence;
-            }
-            boolean isHeading = !inFence && line.startsWith("#");
-
-            if (isHeading) {
-                flush(blocks, current, currentStart);
-                currentStart = lineNo;
-                current.append(line.strip()).append('\n');
-                justAfterHeading = true;
+            String line = lines[i];
+            if (line.matches("#{1,6}\\s+.*")) {            // Markdown 标题 = 新主题
+                flush(segs, buf, start, end, heading, chunkChars);
+                heading = line;
+                start = -1;
                 continue;
             }
-            if (line.isBlank()) {
-                if (!justAfterHeading && !inFence) {
-                    flush(blocks, current, currentStart);
-                }
-                justAfterHeading = false;
+            if (line.isBlank()) {                          // 空行 = 段落边界
+                flush(segs, buf, start, end, heading, chunkChars);
+                start = -1;
                 continue;
             }
-            justAfterHeading = false;
-            if (current.length() == 0) {
-                currentStart = lineNo;
-            }
-            current.append(line.strip()).append('\n');
-        }
-        flush(blocks, current, currentStart);
-
-        List<Piece> result = new ArrayList<>(blocks.size());
-        for (Piece block : blocks) {
-            if (block.text().length() <= chunkChars) {
-                result.add(block);
-            } else {
-                result.addAll(hardSplit(block));
+            if (start < 0) start = i;
+            end = i;
+            if (buf.length() > 0) buf.append('\n');
+            buf.append(line);
+            if (buf.length() >= chunkChars) {              // 超长段落兜底切
+                flush(segs, buf, start, end, heading, chunkChars);
+                start = -1;
             }
         }
-        return result;
+        flush(segs, buf, start, end, heading, chunkChars);
+        return segs;
     }
 
-    private static void flush(List<Piece> blocks, StringBuilder current, int startLine) {
-        String text = current.toString().strip();
-        if (!text.isEmpty()) {
-            blocks.add(new Piece(text, startLine));
+    private static void flush(List<Seg> segs, StringBuilder buf, int start, int end,
+                              String heading, int chunkChars) {
+        String text = buf.toString().strip();
+        buf.setLength(0);
+        if (start < 0 || text.length() < 4) return;        // 丢弃过短碎屑(如 "---")
+        if (text.length() > chunkChars) {
+            for (String piece : sentenceSplit(text, chunkChars)) {
+                segs.add(new Seg(piece, start, end, heading));
+            }
+        } else {
+            segs.add(new Seg(text, start, end, heading));
         }
-        current.setLength(0);
     }
 
-    private List<Piece> hardSplit(Piece block) {
-        List<Piece> parts = new ArrayList<>();
-        String text = block.text();
-        int from = 0;
-        while (from < text.length()) {
-            int end = Math.min(text.length(), from + chunkChars);
-            if (end < text.length()) {
-                for (int k = end; k > from + chunkChars / 2; k--) {
-                    if (isSentenceEnd(text.charAt(k - 1))) {
-                        end = k;
-                        break;
-                    }
-                }
+    /** 按句末标点切（保留标点在句尾），单句超长时允许超出 chunkChars */
+    private static List<String> sentenceSplit(String text, int chunkChars) {
+        List<String> pieces = new ArrayList<>();
+        StringBuilder b = new StringBuilder();
+        for (String s : text.split("(?<=[。！？；!?;])")) {
+            if (b.length() > 0 && b.length() + s.length() > chunkChars) {
+                pieces.add(b.toString());
+                b.setLength(0);
             }
-            String part = text.substring(from, end).strip();
-            if (!part.isEmpty()) {
-                parts.add(new Piece(part, block.lineFrom() + countNewlines(text.substring(0, from))));
-            }
-            from = end;
+            b.append(s);
         }
-        return parts;
-    }
-
-    private String overlapOf(CharSequence text) {
-        if (overlapChars == 0 || text.length() <= overlapChars) {
-            return "";
-        }
-        int from = text.length() - overlapChars;
-        for (int k = from; k < text.length(); k++) {
-            if (isSentenceEnd(text.charAt(k))) {
-                from = k + 1;
-                break;
-            }
-        }
-        while (from < text.length() && Character.isWhitespace(text.charAt(from))) {
-            from++;
-        }
-        return from >= text.length() ? "" : text.toString().substring(from);
-    }
-
-    private static boolean isSentenceEnd(char c) {
-        for (char end : SENTENCE_ENDS) {
-            if (c == end) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static int countNewlines(CharSequence text) {
-        int count = 0;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                count++;
-            }
-        }
-        return count;
+        if (b.length() > 0) pieces.add(b.toString());
+        return pieces;
     }
 }

@@ -1,32 +1,23 @@
 package com.example.rag.http;
 
 /**
- * 带状态码和原始响应体的异常，方便直接看到服务端的报错内容。
+ * 非预期的 API 响应。
+ * statusCode 为 -1 表示没拿到 HTTP 状态码（网络异常 / 序列化失败 / 中断）。
+ * 保留服务端原始响应体——排障时它比任何日志都有用。
  */
 public class ApiException extends RuntimeException {
 
-    private final int status;
-    private final String responseBody;
+    public final int statusCode;
+    public final String responseBody;
 
-    public ApiException(int status, String responseBody) {
-        super("HTTP " + status + " -> " + abbreviate(responseBody));
-        this.status = status;
+    public ApiException(int statusCode, String responseBody) {
+        super("HTTP " + statusCode + ": " + shorten(responseBody));
+        this.statusCode = statusCode;
         this.responseBody = responseBody;
     }
 
-    public int status() {
-        return status;
-    }
-
-    public String responseBody() {
-        return responseBody;
-    }
-
-    private static String abbreviate(String body) {
-        if (body == null) {
-            return "";
-        }
-        String oneLine = body.replaceAll("\\s+", " ").trim();
-        return oneLine.length() <= 400 ? oneLine : oneLine.substring(0, 400) + "...";
+    private static String shorten(String s) {
+        if (s == null) return "";
+        return s.length() <= 500 ? s : s.substring(0, 500) + "...(截断)";
     }
 }

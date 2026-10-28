@@ -1,32 +1,37 @@
 package com.example.rag.rag;
 
 import com.example.rag.llm.EmbeddingClient;
-import com.example.rag.store.Chunk;
+import com.example.rag.store.Scored;
 import com.example.rag.store.VectorStore;
 
 import java.util.List;
 
-public final class Retriever {
+/**
+ * 检索器：问题清洗 -> 向量化 -> 向量库 topK。
+ * 只依赖 VectorStore 的方法签名，不关心底层是 List 还是 pgvector。
+ */
+public class Retriever {
 
-    private final EmbeddingClient embedding;
+    private final EmbeddingClient embedder;
     private final VectorStore store;
 
-    public Retriever(EmbeddingClient embedding, VectorStore store) {
-        this.embedding = embedding;
+    public Retriever(EmbeddingClient embedder, VectorStore store) {
+        this.embedder = embedder;
         this.store = store;
     }
 
-    public List<VectorStore.Hit> retrieve(String question, int topK) {
-        float[] queryVector = embedding.embedOne(question);
-        List<VectorStore.Hit> hits = store.search(queryVector, topK);
-        if (hits.isEmpty()) {
-            throw new IllegalStateException("索引为空，请先执行 index 命令");
-        }
-        return hits;
+    public List<Scored> retrieve(String question, int topK) {
+        String q = clean(question);
+        float[] qv = embedder.embedOne(q);
+        return store.search(qv, topK);
     }
 
-    public static String preview(Chunk chunk, int maxChars) {
-        String text = chunk.text().replaceAll("\\s+", " ");
-        return text.length() <= maxChars ? text : text.substring(0, maxChars) + "...";
+    /** 去掉口语前缀和问号，降低它们对 query 向量的干扰 */
+    static String clean(String q) {
+        return q.trim()
+                .replaceFirst("^(帮我查一下|请问一下|请问|麻烦|我想知道|我想问|帮我看看|帮我|我想|请)+", "")
+                .replace("？", " ")
+                .replace("?", " ")
+                .trim();
     }
 }

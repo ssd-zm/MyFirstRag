@@ -1,11 +1,7 @@
 package com.example.rag.store;
 
 /**
- * 一个切片单元。vector 在建索引时填入，建之前为 null。
+ * 一条不可变的索引数据。
+ * lineFrom/lineTo 是 1-based 行号，用于答案引用；vector 在向量化之后填充。
  */
-public record Chunk(String id, String source, int lineFrom, String text, float[] vector) {
-
-    public Chunk withVector(float[] newVector) {
-        return new Chunk(id, source, lineFrom, text, newVector);
-    }
-}
+public record Chunk(String id, String sourcePath, int lineFrom, int lineTo, String text, float[] vector) {}
