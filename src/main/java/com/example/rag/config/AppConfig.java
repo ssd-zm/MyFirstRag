@@ -14,45 +14,50 @@ import java.util.Properties;
  * 最少只需要填两个 key。想一家全包可改用阿里百炼（见 config.properties.example 注释）。
  */
 public record AppConfig(
-        /** 向量化服务根地址，不含结尾 /，如 https://api.siliconflow.cn/v1；HttpTransport 会再拼 /embeddings */
+        // 向量化服务的地址，后面会再拼 /embeddings，比如 https://api.siliconflow.cn/v1
         String embedBaseUrl,
-        /** 向量化服务的 API key，作为 Bearer token 发送；空白时 load() 直接报错，不允许无 key 启动 */
+        // 向量化服务的 key，不能为空，不然启动就报错
         String embedApiKey,
-        /** 向量化模型名，默认 BAAI/bge-m3；模型名写错时服务端通常返回 400，不会静默降级 */
+        // 向量化模型的名字，默认 BAAI/bge-m3，写错服务端一般返回 400
         String embedModel,
-        /** 对话补全服务根地址，默认 DeepSeek，HttpTransport 会再拼 /chat/completions */
+        // 对话服务的地址，后面会再拼 /chat/completions，默认 DeepSeek
         String chatBaseUrl,
-        /** 对话服务的 API key；与 embedApiKey 可分属两家供应商，两者都不能为空 */
+        // 对话服务的 key，也不能为空，可以和上面的 key 来自不同公司
         String chatApiKey,
-        /** 对话模型名，默认 deepseek-chat */
+        // 对话模型的名字，默认 deepseek-chat
         String chatModel,
-        /** 笔记根目录，index 时递归读取其中 .md/.markdown/.txt，默认 notes */
+        // 笔记目录，建索引时从这里读 .md/.txt 文件
         Path notesDir,
-        /** 索引数据目录，index 写入 index.json，ask/embed-check 从同一路径读回，默认 data */
+        // 索引存放目录，index.json 就存在这里
         Path dataDir,
-        /** 每个切片的目标最大字符数（不是 token），默认 500，下限 100；调大则切片更粗、检索更模糊 */
+        // 每个切片最多大概多少个字，默认 500，调大切片就更粗
         int chunkChars,
-        /** 相邻切片间重叠的字符数，默认 80，要求 0 <= overlapChars < chunkChars，用于避免切点处语义断裂 */
+        // 相邻切片重叠多少个字，默认 80，让切开的句子还能接上
         int overlapChars,
-        /** 每次提问取回多少个切片塞进 prompt，默认 4；调大召回更全，但挤占上下文并增加 token 成本 */
+        // 每次提问取回几条资料，默认 4，取太多会占满模型能看的长度
         int topK,
-        /** 单次 embedding 请求携带的文本条数，默认 16；太大容易被服务端按条数或体积拒绝 */
+        // 一次请求带几条文本去算向量，默认 16，太大容易被服务端拒绝
         int embedBatch,
-        /** 是否向 stderr 打印 [http]/[debug] 诊断日志，不影响 stdout 的业务输出 */
+        // 是否打印调试日志，默认不打
         boolean debug) {
 
     public static AppConfig load() {
+        // 用一个 Properties 装配置文件里的内容
         Properties p = new Properties();
+        // 配置文件放在项目根目录，名字固定
         Path file = Path.of("config.properties");
         if (Files.exists(file)) {
+            // try-with-resources：读完自动关闭文件
             try (InputStream in = Files.newInputStream(file)) {
                 // Properties.load(InputStream) 默认 ISO-8859-1，这里显式用 UTF-8
                 p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
             } catch (Exception e) {
+                // 配置文件读不了，直接报错
                 throw new IllegalStateException("读取 config.properties 失败: " + e.getMessage(), e);
             }
         }
 
+        // 依次按"配置项名、环境变量名、默认值"取值，拼成一个配置对象
         AppConfig c = new AppConfig(
                 get(p, "embedBaseUrl", "RAG_EMBED_BASE_URL", "https://api.siliconflow.cn/v1"),
                 get(p, "embedApiKey", "RAG_EMBED_API_KEY", ""),
@@ -68,17 +73,20 @@ public record AppConfig(
                 getInt(p, "embedBatch", 16),
                 Boolean.parseBoolean(get(p, "debug", "RAG_DEBUG", "false")));
 
+        // 检查必填项和参数是否合理，有问题会抛异常
         c.validate();
         return c;
     }
 
     private void validate() {
+        // 两个 key 都是必填，缺一个都启动不了
         if (embedApiKey.isBlank() || chatApiKey.isBlank()) {
             throw new IllegalStateException("""
                     缺少 API key。两种配法任选:
                     1) 复制 config.properties.example 为 config.properties，填入 chatApiKey 和 embedApiKey
                     2) 设置环境变量 RAG_CHAT_API_KEY 和 RAG_EMBED_API_KEY""");
         }
+        // 切片长度和重叠长度也得合理，否则切分时会出问题
         if (chunkChars < 100 || overlapChars < 0 || overlapChars >= chunkChars) {
             throw new IllegalStateException(
                     "参数不合法: 要求 chunkChars >= 100 且 0 <= overlapChars < chunkChars");
@@ -86,17 +94,24 @@ public record AppConfig(
     }
 
     private static String get(Properties p, String key, String env, String def) {
+        // 先看环境变量有没有配置
         String v = System.getenv(env);
+        // 环境变量有值就用它，去掉首尾空白
         if (v != null && !v.isBlank()) return v.trim();
+        // 环境变量没有，再看配置文件
         v = p.getProperty(key);
+        // 都没有就用默认值
         return v == null || v.isBlank() ? def : v.trim();
     }
 
     private static int getInt(Properties p, String key, int def) {
+        // 先取出字符串，没配就用默认值
         String raw = p.getProperty(key, String.valueOf(def)).trim();
         try {
+            // 把字符串转成整数
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
+            // 转不了说明配置写错了，报错时点明是哪个配置项
             throw new IllegalStateException("配置项 " + key + " 不是整数: " + raw);
         }
     }

@@ -5,15 +5,15 @@ package com.example.rag.store;
  * lineFrom/lineTo 是 1-based 行号，用于答案引用；vector 在向量化之后填充。
  */
 public record Chunk(
-        /** 唯一标识，格式为 "文件名:起始行号"（如 a.md:12），只在 debug 日志里用来区分切片 */
+        // 唯一编号，格式是"文件名:起始行号"，比如 a.md:12，调试时用来区分不同切片
         String id,
-        /** 源文件磁盘路径，来自 FileText.path；拼 prompt 与引用时取它的文件名部分 */
+        // 这个切片来自哪个文件（磁盘上的路径）
         String sourcePath,
-        /** 1-based 起始行号，用于答案引用；由切分器把 0-based 行号 +1 得到 */
+        // 切片在原文里从第几行开始，从 1 开始数，写引用时用
         int lineFrom,
-        /** 1-based 结束行号；同段落按句拆出的多块共用段落行尾，引用可能有几行误差 */
+        // 切片在原文里到第几行结束，也从 1 开始数
         int lineTo,
-        /** 送进 embedding 与 prompt 的正文，含 overlap 尾巴和标题前缀，不含行号 */
+        // 切片正文，也就是要送进模型的这段文字
         String text,
-        /** embedding 模型输出的稠密向量，长度即维度，一般已归一化（余弦退化为点积）；建索引前为 null，检索时跳过 */
+        // 这段文字对应的一串数字，用数字表示它的意思；建索引前是 null
         float[] vector) {}
