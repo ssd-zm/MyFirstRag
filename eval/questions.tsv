@@ -1,0 +1,21 @@
+# 测评集：问题 <Tab> 期望命中的文件名
+# 第二列写多个文件用逗号隔开；写 "-" 表示负样本（笔记里本来就没有答案）
+# 原则：问题按你自己的说法写，不要照抄笔记原句，否则等于开卷考试
+为什么要切片	rag-notes.md
+切片重叠多少字比较合适	rag-notes.md
+余弦相似度为什么可以用点积代替	rag-notes.md
+检索到了但答错是什么原因	rag-notes.md
+RAG 要怎么评估效果	rag-notes.md
+缓存穿透怎么处理	redis-cache.md
+布隆过滤器能判断 key 一定存在吗	redis-cache.md
+缓存雪崩是怎么发生的	redis-cache.md
+热点 key 刚过期会出什么问题	redis-cache.md
+先更新数据库还是先删缓存	redis-cache.md
+HttpClient 为什么要复用	java-concurrency.md
+connectTimeout 能代替请求超时吗	java-concurrency.md
+429 状态码应该重试吗	java-concurrency.md
+中文请求体为什么会乱码	java-concurrency.md
+今天北京天气怎么样	-
+Spring Boot 多数据源怎么配置	-
+Kubernetes 的 Pod 怎么扩容	-
+MySQL 索引失效有哪些场景	-

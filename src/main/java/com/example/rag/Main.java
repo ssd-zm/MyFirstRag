@@ -1,6 +1,7 @@
 package com.example.rag;
 
 import com.example.rag.config.AppConfig;
+import com.example.rag.eval.EvalRunner;
 import com.example.rag.http.ApiException;
 import com.example.rag.http.HttpTransport;
 import com.example.rag.ingest.FileText;
@@ -47,7 +48,11 @@ public class Main {
 //        args = new String[]{"embed-check", "为什么要切片"};
 //        args = new String[]{"ask", "模型的上下文窗口有限，整篇文档塞进去既贵又容易被无关内容干扰。切片的目标是让每一块都能独立表达一个完整的意思，检索时命中的块直接可用。"};
 //        args = new String[]{"ask", "你好，请问为什么要切片？"};
-        args = new String[]{"ask", "你好，测试一下为什么要切片"};
+        args = new String[]{"eval"};
+        // 没有任何命令行参数时（比如 IDE 里直接点运行）走这行调试；命令行传了参数就按参数执行
+        if (args.length == 0) {
+            args = new String[]{"ask", "你好，测试一下为什么要切片"};
+        }
         System.out.println("输入:"+ Arrays.toString(args));
 
         // 一个命令都没给，就打印用法并退出
@@ -57,6 +62,7 @@ public class Main {
                       java -jar rag-demo.jar selftest          网络层自检（配 key 后先跑这个）
                       java -jar rag-demo.jar index             建索引（读取 notes/ 下所有 md/txt）
                       java -jar rag-demo.jar embed-check "问题" 只看检索命中，不调 LLM（调试用）
+                      java -jar rag-demo.jar eval [tsv]        跑测评集，看 Recall@K 和分数分布
                       java -jar rag-demo.jar ask "问题"        基于笔记问答""");
             System.exit(2);
         }
@@ -65,6 +71,8 @@ public class Main {
             switch (args[0]) {
                 case "selftest" -> selftest();
                 case "index" -> index();
+                // eval 可以带测评集路径，不带就用默认的 eval/questions.tsv
+                case "eval" -> eval(args.length > 1 ? args[1] : "eval/questions.tsv");
                 case "ask" -> {
                     // ask 后面必须带问题
                     if (args.length < 2) {
@@ -198,6 +206,41 @@ public class Main {
                 + "，低于它的片段会被 ask 丢弃并回答\"资料中未提及\"");
         // 给使用者的调参提示
         System.out.println("提示: 分数普遍 <0.4 说明没检到，调 chunkChars/topK；检索对了但答案不对，才去调 prompt");
+    }
+
+    // ---------- eval: 跑测评集，只算检索指标 ----------
+
+    private static void eval(String setFile) {
+        AppConfig cfg = AppConfig.load();
+        Path setPath = Path.of(setFile);
+        if (!Files.exists(setPath)) {
+            // 数据集文件都没有，先提示去哪找
+            System.out.println("测评集不存在: " + setPath.toAbsolutePath());
+            System.exit(1);
+        }
+        // 测评用的是已有索引，没建过索引就跑不了
+        Path idx = cfg.dataDir().resolve("index.json");
+        if (!Files.exists(idx)) {
+            System.out.println("索引不存在，先运行: index");
+            System.exit(1);
+        }
+        VectorStore store = VectorStore.load(idx);
+
+        // 评测只需要向量化模型；对话模型完全不参与，所以不花钱在生成上
+        EmbeddingClient embedder = new EmbeddingClient(
+                new HttpTransport(cfg.embedBaseUrl(), cfg.embedApiKey(), cfg.debug()),
+                cfg.embedModel(), cfg.embedBatch());
+
+        List<EvalRunner.Question> questions;
+        try {
+            questions = EvalRunner.load(setPath);
+        } catch (Exception e) {
+            throw new IllegalStateException("读取测评集失败: " + e.getMessage(), e);
+        }
+
+        EvalRunner runner = new EvalRunner(embedder, store);
+        List<EvalRunner.Outcome> outcomes = runner.run(questions, cfg.topK());
+        runner.printReport(outcomes, cfg.topK(), cfg.minScore());
     }
 
     // ---------- ask: 问答 ----------
