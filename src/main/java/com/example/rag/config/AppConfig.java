@@ -36,6 +36,8 @@ public record AppConfig(
         int overlapChars,
         // 每次提问取回几条资料，默认 4，取太多会占满模型能看的长度
         int topK,
+        // 检索结果的最低分门槛，低于它就认为"没找到"，默认 0.40；不设门槛会把无关资料硬塞给模型
+        double minScore,
         // 一次请求带几条文本去算向量，默认 16，太大容易被服务端拒绝
         int embedBatch,
         // 是否打印调试日志，默认不打
@@ -70,6 +72,8 @@ public record AppConfig(
                 getInt(p, "chunkChars", 500),
                 getInt(p, "overlapChars", 80),
                 getInt(p, "topK", 4),
+                // 分数门槛可以写 0.4 这样的小数，没配就按 0.40
+                getDouble(p, "minScore", 0.40),
                 getInt(p, "embedBatch", 16),
                 Boolean.parseBoolean(get(p, "debug", "RAG_DEBUG", "false")));
 
@@ -102,6 +106,18 @@ public record AppConfig(
         v = p.getProperty(key);
         // 都没有就用默认值
         return v == null || v.isBlank() ? def : v.trim();
+    }
+
+    private static double getDouble(Properties p, String key, double def) {
+        // 先取出字符串，没配就用默认值
+        String raw = p.getProperty(key, String.valueOf(def)).trim();
+        try {
+            // 把字符串转成小数
+            return Double.parseDouble(raw);
+        } catch (NumberFormatException e) {
+            // 转不了说明配置写错了，报错时点明是哪个配置项
+            throw new IllegalStateException("配置项 " + key + " 不是小数: " + raw);
+        }
     }
 
     private static int getInt(Properties p, String key, int def) {

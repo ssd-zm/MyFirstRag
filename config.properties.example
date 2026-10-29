@@ -26,5 +26,9 @@ overlapChars=80
 topK=4
 embedBatch=16
 
+# 检索结果的最低分门槛。低于它 ask 会直接回答"资料中未提及"、不调模型，用来挡幻觉。
+# bge-m3 归一化后：相关内容通常 0.5 以上，无关内容大概 0.3~0.4，先用 embed-check 看实际分布再定
+minScore=0.40
+
 # 打印每次 HTTP 请求耗时与检索分数
 debug=true

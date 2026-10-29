@@ -39,10 +39,16 @@ public class Main {
     public static void main(String[] args) {
         // Windows 控制台默认 GBK，强制 stdout 用 UTF-8 输出中文
         System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8));
+        // stderr 也要一起设，否则 [debug]/[chat] 这类打到错误流的日志会乱码
+        System.setErr(new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8));
         //初始化args数据
 //        args = new String[]{"selftest", "你好"};
-        args = new String[]{"index", "你好"};
-//        args = new String[]{"ask", "你好"};
+//        args = new String[]{"index", "你好"};
+//        args = new String[]{"embed-check", "为什么要切片"};
+//        args = new String[]{"ask", "模型的上下文窗口有限，整篇文档塞进去既贵又容易被无关内容干扰。切片的目标是让每一块都能独立表达一个完整的意思，检索时命中的块直接可用。"};
+//        args = new String[]{"ask", "你好，请问为什么要切片？"};
+        args = new String[]{"ask", "你好，测试一下为什么要切片"};
+        System.out.println("输入:"+ Arrays.toString(args));
 
         // 一个命令都没给，就打印用法并退出
         if (args.length < 1) {
@@ -187,6 +193,9 @@ public class Main {
             if (preview.length() > 60) preview = preview.substring(0, 60) + "...";
             System.out.println("        " + preview);
         }
+        // 告诉使用者当前门槛，方便判断该调参数还是补笔记
+        System.out.println("当前门槛 minScore=" + cfg.minScore()
+                + "，低于它的片段会被 ask 丢弃并回答\"资料中未提及\"");
         // 给使用者的调参提示
         System.out.println("提示: 分数普遍 <0.4 说明没检到，调 chunkChars/topK；检索对了但答案不对，才去调 prompt");
     }
@@ -219,16 +228,27 @@ public class Main {
                 cfg.chatModel());
 
         // 先检索出最相关的几条资料
-        List<Scored> hits = new Retriever(embedder, store).retrieve(question, cfg.topK());
-        if (hits.isEmpty()) {
+        List<Scored> raw = new Retriever(embedder, store).retrieve(question, cfg.topK());
+        if (raw.isEmpty()) {
             System.out.println("没有检索到任何内容");
             return;
         }
         if (cfg.debug()) {
             // 调试模式下把每条得分和编号打到错误流
-            for (Scored s : hits) {
+            for (Scored s : raw) {
                 System.err.printf("[debug] %.4f %s%n", s.score(), s.chunk().id());
             }
+        }
+        // 低于分数门槛的片段直接丢掉，避免把无关内容硬塞给模型
+        List<Scored> hits = raw.stream().filter(s -> s.score() >= cfg.minScore()).toList();
+        if (hits.isEmpty()) {
+            // 一条都不够格，说明笔记里没有相关内容。这时直接说不知道，不调模型：省 token，也不会瞎编
+            System.out.println("答案:");
+            System.out.println("资料中未提及");
+            System.out.printf("（最高相似度 %.4f 低于门槛 %.2f，用 embed-check 可以看真实分数）%n",
+                    raw.get(0).score(), cfg.minScore());
+            System.out.println("本次 tokens: embedding=" + embedder.totalTokens() + ", chat=0（未调用模型）");
+            return;
         }
 
         // 把资料和问题拼成 prompt，再让模型回答
