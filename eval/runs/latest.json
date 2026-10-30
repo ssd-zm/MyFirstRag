@@ -1,5 +1,5 @@
 {
-  "time" : "2026-10-30 10:06:59",
+  "time" : "2026-10-30 10:40:12",
   "params" : {
     "chunks" : 14,
     "chunkChars" : 500,
@@ -229,8 +229,8 @@
   }, {
     "question" : "缓存击穿和缓存雪崩有啥区别",
     "negative" : false,
-    "expected" : "redis-cache.md:9,redis-cache.md:15",
-    "rank" : 2,
+    "expected" : "redis-cache.md:11,redis-cache.md:15",
+    "rank" : 1,
     "topScore" : 0.8081,
     "ok" : true,
     "top1" : "redis-cache.md:11-11"

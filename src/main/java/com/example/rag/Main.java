@@ -12,6 +12,7 @@ import com.example.rag.llm.ChatClient;
 import com.example.rag.llm.EmbeddingClient;
 import com.example.rag.rag.PromptBuilder;
 import com.example.rag.rag.Retriever;
+import com.example.rag.search.TrigramTokenizer;
 import com.example.rag.store.Chunk;
 import com.example.rag.store.Scored;
 import com.example.rag.store.VectorStore;
@@ -49,10 +50,10 @@ public class Main {
 //        args = new String[]{"embed-check", "为什么要切片"};
 //        args = new String[]{"ask", "模型的上下文窗口有限，整篇文档塞进去既贵又容易被无关内容干扰。切片的目标是让每一块都能独立表达一个完整的意思，检索时命中的块直接可用。"};
 //        args = new String[]{"ask", "RAG 里的 chunk 一般多大"};
-        args = new String[]{"ask", "MySQL 索引失效有哪些场景"};
+//        args = new String[]{"ask", "MySQL 索引失效有哪些场景"};
         // 没有任何命令行参数时（比如 IDE 里直接点运行）默认跑 eval；命令行传了参数就按参数执行
         if (args.length == 0) {
-            args = new String[]{"eval"};
+            args = new String[]{"selftest"};
         }
         System.out.println("输入:"+ Arrays.toString(args));
 
@@ -362,6 +363,21 @@ public class Main {
     // ---------- selftest: 网络层自检 ----------
 
     private static void selftest() {
+        // 在 Main.java 的 selftest() 里临时加：
+        System.out.println("== tokenize 测试 ==");
+        String[] samples = {
+                "缓存击穿和缓存雪崩有啥区别",
+                "HttpClient 429 带了 Retry-After",
+                "connectTimeout 和请求超时是一个东西吗？",
+                "RAG 里的 chunk 一般切多大？",
+        };
+        for (String s : samples) {
+            System.out.println("输入: " + s);
+            System.out.println("term: " + TrigramTokenizer.tokenize(s));
+            System.out.println();
+        }
+
+
         // JSON 工具和配置
         ObjectMapper mapper = new ObjectMapper();
         AppConfig cfg = AppConfig.load();
