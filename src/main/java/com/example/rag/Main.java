@@ -12,6 +12,7 @@ import com.example.rag.llm.ChatClient;
 import com.example.rag.llm.EmbeddingClient;
 import com.example.rag.rag.PromptBuilder;
 import com.example.rag.rag.Retriever;
+import com.example.rag.search.Bm25Index;
 import com.example.rag.search.TrigramTokenizer;
 import com.example.rag.store.Chunk;
 import com.example.rag.store.Scored;
@@ -363,24 +364,16 @@ public class Main {
     // ---------- selftest: 网络层自检 ----------
 
     private static void selftest() {
-        // 在 Main.java 的 selftest() 里临时加：
-        System.out.println("== tokenize 测试 ==");
-        String[] samples = {
-                "缓存击穿和缓存雪崩有啥区别",
-                "HttpClient 429 带了 Retry-After",
-                "connectTimeout 和请求超时是一个东西吗？",
-                "RAG 里的 chunk 一般切多大？",
-        };
-        for (String s : samples) {
-            System.out.println("输入: " + s);
-            System.out.println("term: " + TrigramTokenizer.tokenize(s));
-            System.out.println();
-        }
+        AppConfig cfg = AppConfig.load();
+        // ===== bigram分词 临时验证，跑完可删 =====
+        testBigram();
+
+        // ===== BM25 临时验证，跑完就删 =====
+        testBM25(cfg);
 
 
         // JSON 工具和配置
         ObjectMapper mapper = new ObjectMapper();
-        AppConfig cfg = AppConfig.load();
         // 记录通过和失败的次数
         int pass = 0, fail = 0;
 
@@ -456,5 +449,54 @@ public class Main {
         System.out.printf("%n自检结果: %d 通过, %d 失败%n", pass, fail);
         // 有失败就以失败状态退出
         if (fail > 0) System.exit(1);
+    }
+
+    private static void testBM25(AppConfig cfg) {
+        List<FileText> files = new MarkdownLoader().loadAll(cfg.notesDir());
+        System.out.println("开始测试BM25");
+        System.out.println("读取文件: " + files.size() + " 个");
+        // 把所有文件切成一片一片（chunk）
+        List<Chunk> chunks = new ArrayList<>();
+        TextSplitter splitter = new TextSplitter();
+        for (FileText f : files) {
+            // 每个文件按配置的长度和重叠切
+            chunks.addAll(splitter.split(f, cfg.chunkChars(), cfg.overlapChars()));
+        }
+
+        Bm25Index bm25 = new Bm25Index();
+        bm25.build(chunks);
+        System.out.println("BM25 索引建好，切片数 = " + chunks.size());
+
+        for (String q : List.of(
+                "缓存击穿和缓存雪崩有啥区别",
+                "Retry-After 应该怎么等",
+                "Redis 的 RDB 和 AOF 怎么选")) {
+            System.out.println("查询: " + q);
+            for (Scored s : bm25.search(q, 3)) {
+                System.out.printf("  %.3f  %s:%d行%n",
+                        s.score(), s.chunk().sourcePath(), s.chunk().lineFrom());
+            }
+        }
+    }
+
+    /**
+ * 测试TrigramTokenizer类的tokenize方法
+ * 该方法用于测试将输入的中文句子进行三元分词的效果
+ */
+    private static void testBigram() {
+        System.out.println("== tokenize 测试 =="); // 打印测试标题
+    // 定义测试样本数组，包含多个待分词的中文句子
+        String[] samples = {
+                "缓存击穿和缓存雪崩有啥区别",
+                "HttpClient 429 带了 Retry-After",
+                "connectTimeout 和请求超时是一个东西吗？",
+                "RAG 里的 chunk 一般切多大？",
+        };
+    // 遍历每个测试样本
+        for (String s : samples) {
+            System.out.println("输入: " + s); // 打印当前输入的句子
+            System.out.println("term: " + TrigramTokenizer.tokenize(s)); // 打印分词结果
+            System.out.println(); // 打印空行，用于分隔不同样本的输出
+        }
     }
 }
