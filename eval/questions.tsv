@@ -1,21 +1,35 @@
-# 测评集：问题 <Tab> 期望命中的文件名
-# 第二列写多个文件用逗号隔开；写 "-" 表示负样本（笔记里本来就没有答案）
+# 测评集：问题 <Tab> 期望命中的位置
+# 位置写法：文件名:行号，表示答案所在的这一行必须落在命中的切片里；只写文件名表示只要命中该文件就算对
+# 多个位置用逗号隔开；第二列写 "-" 表示负样本（笔记里本来就没有答案）
 # 原则：问题按你自己的说法写，不要照抄笔记原句，否则等于开卷考试
-为什么要切片	rag-notes.md
-切片重叠多少字比较合适	rag-notes.md
-余弦相似度为什么可以用点积代替	rag-notes.md
-检索到了但答错是什么原因	rag-notes.md
-RAG 要怎么评估效果	rag-notes.md
-缓存穿透怎么处理	redis-cache.md
-布隆过滤器能判断 key 一定存在吗	redis-cache.md
-缓存雪崩是怎么发生的	redis-cache.md
-热点 key 刚过期会出什么问题	redis-cache.md
-先更新数据库还是先删缓存	redis-cache.md
-HttpClient 为什么要复用	java-concurrency.md
-connectTimeout 能代替请求超时吗	java-concurrency.md
-429 状态码应该重试吗	java-concurrency.md
-中文请求体为什么会乱码	java-concurrency.md
+为什么要切片	rag-notes.md:9
+切片重叠多少字比较合适	rag-notes.md:13
+余弦相似度为什么可以用点积代替	rag-notes.md:19
+检索到了但答错是什么原因	rag-notes.md:23
+RAG 要怎么评估效果	rag-notes.md:25
+缓存穿透怎么处理	redis-cache.md:5
+布隆过滤器能判断 key 一定存在吗	redis-cache.md:7
+缓存雪崩是怎么发生的	redis-cache.md:15
+热点 key 刚过期会出什么问题	redis-cache.md:11
+先更新数据库还是先删缓存	redis-cache.md:19
+HttpClient 为什么要复用	java-concurrency.md:5
+connectTimeout 能代替请求超时吗	java-concurrency.md:9
+429 状态码应该重试吗	java-concurrency.md:13
+中文请求体为什么会乱码	java-concurrency.md:19
 今天北京天气怎么样	-
 Spring Boot 多数据源怎么配置	-
 Kubernetes 的 Pod 怎么扩容	-
 MySQL 索引失效有哪些场景	-
+
+# 难题组：答案都在笔记里，但问法和原文不一样（口语、缩写、推理、跨句）
+# 一题一题看：如果这些题仍然全对，说明题还不够难，继续换更偏的说法
+为啥不能把整篇文档直接丢给模型	rag-notes.md:9
+RAG 里 chunk 一般切多大	rag-notes.md:13
+相邻两块为啥要重叠一部分	rag-notes.md:13
+chunk 设成 800 有什么坏处	rag-notes.md:13
+检索不到内容，一般先怀疑哪些原因	rag-notes.md:23
+并发一上来就报线程耗尽，可能是什么原因	java-concurrency.md:5
+为什么不能把 HttpClient 放进 ThreadLocal	java-concurrency.md:23
+服务端 429 带了 Retry-After，应该怎么等	java-concurrency.md:15
+缓存击穿和缓存雪崩有啥区别	redis-cache.md:11,redis-cache.md:15
+Redis 的 RDB 和 AOF 怎么选	-

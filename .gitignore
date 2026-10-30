@@ -1,0 +1,7 @@
+target/
+config.properties
+data/
+*.log
+.idea/
+*.iml
+.vscode/

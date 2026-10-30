@@ -1,6 +1,7 @@
 package com.example.rag;
 
 import com.example.rag.config.AppConfig;
+import com.example.rag.eval.EvalReport;
 import com.example.rag.eval.EvalRunner;
 import com.example.rag.http.ApiException;
 import com.example.rag.http.HttpTransport;
@@ -47,11 +48,11 @@ public class Main {
 //        args = new String[]{"index", "你好"};
 //        args = new String[]{"embed-check", "为什么要切片"};
 //        args = new String[]{"ask", "模型的上下文窗口有限，整篇文档塞进去既贵又容易被无关内容干扰。切片的目标是让每一块都能独立表达一个完整的意思，检索时命中的块直接可用。"};
-//        args = new String[]{"ask", "你好，请问为什么要切片？"};
-        args = new String[]{"eval"};
-        // 没有任何命令行参数时（比如 IDE 里直接点运行）走这行调试；命令行传了参数就按参数执行
+//        args = new String[]{"ask", "RAG 里的 chunk 一般多大"};
+        args = new String[]{"ask", "MySQL 索引失效有哪些场景"};
+        // 没有任何命令行参数时（比如 IDE 里直接点运行）默认跑 eval；命令行传了参数就按参数执行
         if (args.length == 0) {
-            args = new String[]{"ask", "你好，测试一下为什么要切片"};
+            args = new String[]{"eval"};
         }
         System.out.println("输入:"+ Arrays.toString(args));
 
@@ -240,7 +241,29 @@ public class Main {
 
         EvalRunner runner = new EvalRunner(embedder, store);
         List<EvalRunner.Outcome> outcomes = runner.run(questions, cfg.topK());
+        EvalRunner.Summary summary = runner.summarize(outcomes, cfg.minScore());
         runner.printReport(outcomes, cfg.topK(), cfg.minScore());
+
+        // 落盘 + 与上一次对比。参数快照要带上索引文件的修改时间，
+        // 才能识别"改了切片参数却没重跑 index"这种让比对失效的情况
+        try {
+            Path runsDir = Path.of("eval/runs");
+            long mtime = Files.getLastModifiedTime(idx).toMillis();
+            EvalReport.Snapshot snap = new EvalReport.Snapshot(
+                    store.size(), cfg.chunkChars(), cfg.overlapChars(),
+                    cfg.topK(), cfg.minScore(), cfg.embedModel(),
+                    mtime, Files.size(idx));
+            EvalReport.printDiff(runsDir, summary, snap, outcomes);
+            Path md = EvalReport.write(runsDir, summary, snap, outcomes);
+            if (md != null) {
+                System.out.println();
+                System.out.println("报告已保存: " + md.toAbsolutePath());
+                System.out.println("基线文件:   " + md.getParent().resolve("latest.json").toAbsolutePath()
+                        + "（下次跑 eval 会自动和它对比）");
+            }
+        } catch (Exception e) {
+            System.out.println("（评测报告落盘失败: " + e.getMessage() + "）");
+        }
     }
 
     // ---------- ask: 问答 ----------
@@ -300,15 +323,40 @@ public class Main {
 
         System.out.println("答案:");
         System.out.println(answer);
-        System.out.println("\n命中来源:");
-        for (Scored s : hits) {
-            // 只显示文件名和起始行，方便回原文核对
-            String name = Path.of(s.chunk().sourcePath()).getFileName().toString();
-            System.out.printf("  %.4f  %s:%d行%n", s.score(), name, s.chunk().lineFrom());
+
+        if (isRefusal(answer)) {
+            // 模型判定资料里没有答案，就不能再打印"命中来源"：
+            // 一边说未提及、一边列出引用，会让人误以为答案是这几段支撑的
+            System.out.printf("%n检索到 %d 条候选，但都没有被采用（模型判定不足以回答）：%n", hits.size());
+            for (Scored s : hits) {
+                String name = Path.of(s.chunk().sourcePath()).getFileName().toString();
+                System.out.printf("  %.4f  %s:%d行  未采用%n", s.score(), name, s.chunk().lineFrom());
+            }
+            double lo = hits.stream().mapToDouble(Scored::score).min().orElse(0);
+            double hi = hits.stream().mapToDouble(Scored::score).max().orElse(0);
+            System.out.printf("分数区间 %.4f~%.4f，仅略微高于门槛 %.2f。%n", lo, hi, cfg.minScore());
+            System.out.println("建议: 提高 minScore，或改善切分，让无关内容不要过关");
+        } else {
+            System.out.println("\n命中来源:");
+            for (Scored s : hits) {
+                // 只显示文件名和起始行，方便回原文核对
+                String name = Path.of(s.chunk().sourcePath()).getFileName().toString();
+                System.out.printf("  %.4f  %s:%d行%n", s.score(), name, s.chunk().lineFrom());
+            }
         }
         // 最后报告这次问答一共花了多少 token
         System.out.println("本次 tokens: embedding=" + embedder.totalTokens()
                 + ", chat=" + chat.totalTokens());
+    }
+
+    /**
+     * 判断模型是不是在拒答。靠字符串识别，够这个 demo 用；
+     * 要更稳的话应该让模型输出 JSON，带一个 answered 布尔字段，而不是猜文本。
+     */
+    private static boolean isRefusal(String answer) {
+        String a = answer.replaceAll("\\s+", "");
+        return a.contains("资料中未提及") || a.contains("未提及")
+                || a.contains("无法回答") || a.contains("没有相关信息");
     }
 
     // ---------- selftest: 网络层自检 ----------

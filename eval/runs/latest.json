@@ -1,0 +1,246 @@
+{
+  "time" : "2026-10-30 10:06:59",
+  "params" : {
+    "chunks" : 14,
+    "chunkChars" : 500,
+    "overlapChars" : 80,
+    "topK" : 4,
+    "minScore" : 0.4,
+    "embedModel" : "text-embedding-v4",
+    "indexModifiedMillis" : 1793241167923,
+    "indexSizeBytes" : 183535
+  },
+  "metrics" : {
+    "posTotal" : 23,
+    "posHit" : 23,
+    "recallPercent" : 100.0,
+    "mrr" : 0.9,
+    "negTotal" : 5,
+    "negRejected" : 2
+  },
+  "cases" : [ {
+    "question" : "为什么要切片",
+    "negative" : false,
+    "expected" : "rag-notes.md:9",
+    "rank" : 1,
+    "topScore" : 0.767,
+    "ok" : true,
+    "top1" : "rag-notes.md:9-9"
+  }, {
+    "question" : "切片重叠多少字比较合适",
+    "negative" : false,
+    "expected" : "rag-notes.md:13",
+    "rank" : 1,
+    "topScore" : 0.7879,
+    "ok" : true,
+    "top1" : "rag-notes.md:13-15"
+  }, {
+    "question" : "余弦相似度为什么可以用点积代替",
+    "negative" : false,
+    "expected" : "rag-notes.md:19",
+    "rank" : 1,
+    "topScore" : 0.6129,
+    "ok" : true,
+    "top1" : "rag-notes.md:19-19"
+  }, {
+    "question" : "检索到了但答错是什么原因",
+    "negative" : false,
+    "expected" : "rag-notes.md:23",
+    "rank" : 1,
+    "topScore" : 0.6091,
+    "ok" : true,
+    "top1" : "rag-notes.md:23-25"
+  }, {
+    "question" : "RAG 要怎么评估效果",
+    "negative" : false,
+    "expected" : "rag-notes.md:25",
+    "rank" : 2,
+    "topScore" : 0.6394,
+    "ok" : true,
+    "top1" : "rag-notes.md:5-5"
+  }, {
+    "question" : "缓存穿透怎么处理",
+    "negative" : false,
+    "expected" : "redis-cache.md:5",
+    "rank" : 1,
+    "topScore" : 0.7947,
+    "ok" : true,
+    "top1" : "redis-cache.md:5-7"
+  }, {
+    "question" : "布隆过滤器能判断 key 一定存在吗",
+    "negative" : false,
+    "expected" : "redis-cache.md:7",
+    "rank" : 1,
+    "topScore" : 0.7015,
+    "ok" : true,
+    "top1" : "redis-cache.md:5-7"
+  }, {
+    "question" : "缓存雪崩是怎么发生的",
+    "negative" : false,
+    "expected" : "redis-cache.md:15",
+    "rank" : 1,
+    "topScore" : 0.8202,
+    "ok" : true,
+    "top1" : "redis-cache.md:15-15"
+  }, {
+    "question" : "热点 key 刚过期会出什么问题",
+    "negative" : false,
+    "expected" : "redis-cache.md:11",
+    "rank" : 1,
+    "topScore" : 0.6468,
+    "ok" : true,
+    "top1" : "redis-cache.md:11-11"
+  }, {
+    "question" : "先更新数据库还是先删缓存",
+    "negative" : false,
+    "expected" : "redis-cache.md:19",
+    "rank" : 1,
+    "topScore" : 0.8047,
+    "ok" : true,
+    "top1" : "redis-cache.md:19-19"
+  }, {
+    "question" : "HttpClient 为什么要复用",
+    "negative" : false,
+    "expected" : "java-concurrency.md:5",
+    "rank" : 1,
+    "topScore" : 0.8073,
+    "ok" : true,
+    "top1" : "java-concurrency.md:5-5"
+  }, {
+    "question" : "connectTimeout 能代替请求超时吗",
+    "negative" : false,
+    "expected" : "java-concurrency.md:9",
+    "rank" : 1,
+    "topScore" : 0.7529,
+    "ok" : true,
+    "top1" : "java-concurrency.md:9-9"
+  }, {
+    "question" : "429 状态码应该重试吗",
+    "negative" : false,
+    "expected" : "java-concurrency.md:13",
+    "rank" : 1,
+    "topScore" : 0.8073,
+    "ok" : true,
+    "top1" : "java-concurrency.md:13-15"
+  }, {
+    "question" : "中文请求体为什么会乱码",
+    "negative" : false,
+    "expected" : "java-concurrency.md:19",
+    "rank" : 1,
+    "topScore" : 0.7343,
+    "ok" : true,
+    "top1" : "java-concurrency.md:19-19"
+  }, {
+    "question" : "今天北京天气怎么样",
+    "negative" : true,
+    "expected" : "",
+    "rank" : 0,
+    "topScore" : 0.2365,
+    "ok" : true,
+    "top1" : "java-concurrency.md:13-15"
+  }, {
+    "question" : "Spring Boot 多数据源怎么配置",
+    "negative" : true,
+    "expected" : "",
+    "rank" : 0,
+    "topScore" : 0.4347,
+    "ok" : false,
+    "top1" : "java-concurrency.md:19-19"
+  }, {
+    "question" : "Kubernetes 的 Pod 怎么扩容",
+    "negative" : true,
+    "expected" : "",
+    "rank" : 0,
+    "topScore" : 0.387,
+    "ok" : true,
+    "top1" : "redis-cache.md:15-15"
+  }, {
+    "question" : "MySQL 索引失效有哪些场景",
+    "negative" : true,
+    "expected" : "",
+    "rank" : 0,
+    "topScore" : 0.4504,
+    "ok" : false,
+    "top1" : "redis-cache.md:11-11"
+  }, {
+    "question" : "为啥不能把整篇文档直接丢给模型",
+    "negative" : false,
+    "expected" : "rag-notes.md:9",
+    "rank" : 2,
+    "topScore" : 0.6578,
+    "ok" : true,
+    "top1" : "rag-notes.md:23-25"
+  }, {
+    "question" : "RAG 里 chunk 一般切多大",
+    "negative" : false,
+    "expected" : "rag-notes.md:13",
+    "rank" : 1,
+    "topScore" : 0.6987,
+    "ok" : true,
+    "top1" : "rag-notes.md:13-15"
+  }, {
+    "question" : "相邻两块为啥要重叠一部分",
+    "negative" : false,
+    "expected" : "rag-notes.md:13",
+    "rank" : 1,
+    "topScore" : 0.5478,
+    "ok" : true,
+    "top1" : "rag-notes.md:13-15"
+  }, {
+    "question" : "chunk 设成 800 有什么坏处",
+    "negative" : false,
+    "expected" : "rag-notes.md:13",
+    "rank" : 1,
+    "topScore" : 0.5738,
+    "ok" : true,
+    "top1" : "rag-notes.md:13-15"
+  }, {
+    "question" : "检索不到内容，一般先怀疑哪些原因",
+    "negative" : false,
+    "expected" : "rag-notes.md:23",
+    "rank" : 1,
+    "topScore" : 0.5915,
+    "ok" : true,
+    "top1" : "rag-notes.md:23-25"
+  }, {
+    "question" : "并发一上来就报线程耗尽，可能是什么原因",
+    "negative" : false,
+    "expected" : "java-concurrency.md:5",
+    "rank" : 4,
+    "topScore" : 0.6623,
+    "ok" : true,
+    "top1" : "java-concurrency.md:23-23"
+  }, {
+    "question" : "为什么不能把 HttpClient 放进 ThreadLocal",
+    "negative" : false,
+    "expected" : "java-concurrency.md:23",
+    "rank" : 1,
+    "topScore" : 0.7961,
+    "ok" : true,
+    "top1" : "java-concurrency.md:23-23"
+  }, {
+    "question" : "服务端 429 带了 Retry-After，应该怎么等",
+    "negative" : false,
+    "expected" : "java-concurrency.md:15",
+    "rank" : 1,
+    "topScore" : 0.7455,
+    "ok" : true,
+    "top1" : "java-concurrency.md:13-15"
+  }, {
+    "question" : "缓存击穿和缓存雪崩有啥区别",
+    "negative" : false,
+    "expected" : "redis-cache.md:9,redis-cache.md:15",
+    "rank" : 2,
+    "topScore" : 0.8081,
+    "ok" : true,
+    "top1" : "redis-cache.md:11-11"
+  }, {
+    "question" : "Redis 的 RDB 和 AOF 怎么选",
+    "negative" : true,
+    "expected" : "",
+    "rank" : 0,
+    "topScore" : 0.5487,
+    "ok" : false,
+    "top1" : "redis-cache.md:15-15"
+  } ]
+}
