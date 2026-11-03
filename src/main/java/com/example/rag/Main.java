@@ -54,7 +54,8 @@ public class Main {
 //        args = new String[]{"ask", "MySQL 索引失效有哪些场景"};
         // 没有任何命令行参数时（比如 IDE 里直接点运行）默认跑 eval；命令行传了参数就按参数执行
         if (args.length == 0) {
-            args = new String[]{"selftest"};
+//            args = new String[]{"selftest"};
+            args = new String[]{"eval","eval/questions.tsv","HYBRID"};
         }
         System.out.println("输入:"+ Arrays.toString(args));
 
@@ -74,8 +75,7 @@ public class Main {
             switch (args[0]) {
                 case "selftest" -> selftest();
                 case "index" -> index();
-                // eval 可以带测评集路径，不带就用默认的 eval/questions.tsv
-                case "eval" -> eval(args.length > 1 ? args[1] : "eval/questions.tsv");
+                case "eval" -> eval(Arrays.copyOfRange(args, 1, args.length));
                 case "ask" -> {
                     // ask 后面必须带问题
                     if (args.length < 2) {
@@ -149,13 +149,21 @@ public class Main {
         VectorStore store = new VectorStore();
         store.addAll(indexed);
 
+        // BM25 索引只依赖切片文本，和向量化是两条独立的计算，毫秒级就能建完
+        Bm25Index bm25 = new Bm25Index();
+        bm25.build(indexed);
+
         try {
             // 目录不存在就先建出来
             Files.createDirectories(cfg.dataDir());
-            // 索引固定存成 data/index.json
+            // 向量索引固定存成 data/index.json
             Path idx = cfg.dataDir().resolve("index.json");
             store.save(idx);
-            System.out.println("索引已保存: " + idx.toAbsolutePath());
+            System.out.println("向量索引已保存: " + idx.toAbsolutePath());
+            // BM25 索引和向量索引分开存，data/bm25.json
+            Path bm25Path = cfg.dataDir().resolve("bm25.json");
+            bm25.save(bm25Path);
+            System.out.println("BM25 索引已保存: " + bm25Path.toAbsolutePath());
         } catch (Exception e) {
             // 保存失败就报错，带上原因
             throw new IllegalStateException("保存索引失败: " + e.getMessage(), e);
@@ -213,7 +221,28 @@ public class Main {
 
     // ---------- eval: 跑测评集，只算检索指标 ----------
 
-    private static void eval(String setFile) {
+    private static void eval(String[] args) {
+        // 解析参数：可以是 "eval [mode] [tsv]" 或 "eval [tsv] [mode]" 或 "eval"
+        // mode 是 vector/bm25/hybrid，默认 vector
+        Retriever.SearchMode mode = Retriever.SearchMode.VECTOR_ONLY;
+        String setFile = "eval/questions.tsv";
+
+        for (String a : args) {
+            // 遍历每个参数，看是 mode 名还是文件路径
+            String lower = a.toLowerCase();
+            if (lower.equals("vector") || lower.equals("bm25") || lower.equals("hybrid")) {
+                // 识别为模式名
+                mode = switch (lower) {
+                    case "vector" -> Retriever.SearchMode.VECTOR_ONLY;
+                    case "bm25"   -> Retriever.SearchMode.BM25_ONLY;
+                    default       -> Retriever.SearchMode.HYBRID;
+                };
+            } else if (!a.isBlank()) {
+                // 其他非空的都当测评集路径（只有第一个非 mode 的生效）
+                setFile = a;
+            }
+        }
+
         AppConfig cfg = AppConfig.load();
         Path setPath = Path.of(setFile);
         if (!Files.exists(setPath)) {
@@ -224,10 +253,22 @@ public class Main {
         // 测评用的是已有索引，没建过索引就跑不了
         Path idx = cfg.dataDir().resolve("index.json");
         if (!Files.exists(idx)) {
-            System.out.println("索引不存在，先运行: index");
+            System.out.println("向量索引不存在，先运行: index");
             System.exit(1);
         }
         VectorStore store = VectorStore.load(idx);
+
+        // HYBRID 和 BM25_ONLY 需要 BM25 索引
+        Bm25Index bm25 = null;
+        if (mode == Retriever.SearchMode.HYBRID || mode == Retriever.SearchMode.BM25_ONLY) {
+            Path bm25Path = cfg.dataDir().resolve("bm25.json");
+            if (!Files.exists(bm25Path)) {
+                System.out.println("BM25 索引不存在，请先运行 index 重建（BM25 索引会和向量索引一起存）");
+                System.exit(1);
+            }
+            bm25 = Bm25Index.load(bm25Path);
+            System.out.println("已加载 BM25 索引，切片数=" + bm25.size());
+        }
 
         // 评测只需要向量化模型；对话模型完全不参与，所以不花钱在生成上
         EmbeddingClient embedder = new EmbeddingClient(
@@ -241,7 +282,7 @@ public class Main {
             throw new IllegalStateException("读取测评集失败: " + e.getMessage(), e);
         }
 
-        EvalRunner runner = new EvalRunner(embedder, store);
+        EvalRunner runner = new EvalRunner(embedder, store, bm25, mode);
         List<EvalRunner.Outcome> outcomes = runner.run(questions, cfg.topK());
         EvalRunner.Summary summary = runner.summarize(outcomes, cfg.minScore());
         runner.printReport(outcomes, cfg.topK(), cfg.minScore());
@@ -275,15 +316,23 @@ public class Main {
         AppConfig cfg = AppConfig.load();
         Path idx = cfg.dataDir().resolve("index.json");
         if (!Files.exists(idx)) {
-            // 没有索引就没法检索
             System.out.println("索引不存在，先运行: index");
             System.exit(1);
         }
         VectorStore store = VectorStore.load(idx);
         if (store.size() == 0) {
-            // 索引是空的
             System.out.println("索引为空，先运行: index");
             System.exit(1);
+        }
+
+        // BM25 索引：ask 默认用 hybrid，必须同时加载 BM25 索引
+        Path bm25Path = cfg.dataDir().resolve("bm25.json");
+        Bm25Index bm25 = null;
+        if (Files.exists(bm25Path)) {
+            bm25 = Bm25Index.load(bm25Path);
+        } else {
+            // 没有 BM25 索引就降级到纯向量，提示用户重跑 index
+            System.out.println("（提示: BM25 索引不存在，降级为纯向量检索。可运行 index 重建）");
         }
 
         // 向量化用一套 key 和模型
@@ -295,26 +344,43 @@ public class Main {
                 new HttpTransport(cfg.chatBaseUrl(), cfg.chatApiKey(), cfg.debug()),
                 cfg.chatModel());
 
-        // 先检索出最相关的几条资料
-        List<Scored> raw = new Retriever(embedder, store).retrieve(question, cfg.topK());
+        // 默认 HYBRID 模式：向量 + BM25 → RRF 融合
+        // 如果 BM25 索引不存在，自动降级成纯向量
+        Retriever.SearchMode mode = (bm25 != null)
+                ? Retriever.SearchMode.HYBRID
+                : Retriever.SearchMode.VECTOR_ONLY;
+
+        // 先检索出最相关的几条资料（hybrid 模式下分数是 RRF 排名分，量纲和 minScore 不同）
+        List<Scored> raw = new Retriever(embedder, store, bm25, mode).retrieve(question, cfg.topK());
         if (raw.isEmpty()) {
             System.out.println("没有检索到任何内容");
             return;
         }
+
+        // hybrid 模式下，RRF 融合后的分数是排名分（~0.03x），不能直接和余弦阈值 minScore（~0.40）比。
+        // 解决：额外跑一次纯向量检索，用它的 top1 分数做阈值判断——因为只有向量分数和 minScore 同量纲。
+        double top1Score = raw.get(0).score();
+        if (mode == Retriever.SearchMode.HYBRID) {
+            List<Scored> vectorOnly = new Retriever(embedder, store).retrieve(question, 1);
+            top1Score = vectorOnly.isEmpty() ? 0 : vectorOnly.get(0).score();
+        }
+
         if (cfg.debug()) {
             // 调试模式下把每条得分和编号打到错误流
             for (Scored s : raw) {
                 System.err.printf("[debug] %.4f %s%n", s.score(), s.chunk().id());
             }
         }
+
         // 低于分数门槛的片段直接丢掉，避免把无关内容硬塞给模型
-        List<Scored> hits = raw.stream().filter(s -> s.score() >= cfg.minScore()).toList();
+        // hybrid 模式下用原始向量分数做阈值，融合后的分数只用于排序
+        List<Scored> hits = top1Score >= cfg.minScore() ? raw : List.of();
         if (hits.isEmpty()) {
             // 一条都不够格，说明笔记里没有相关内容。这时直接说不知道，不调模型：省 token，也不会瞎编
             System.out.println("答案:");
             System.out.println("资料中未提及");
             System.out.printf("（最高相似度 %.4f 低于门槛 %.2f，用 embed-check 可以看真实分数）%n",
-                    raw.get(0).score(), cfg.minScore());
+                    top1Score, cfg.minScore());
             System.out.println("本次 tokens: embedding=" + embedder.totalTokens() + ", chat=0（未调用模型）");
             return;
         }

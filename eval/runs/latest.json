@@ -1,5 +1,5 @@
 {
-  "time" : "2026-10-30 10:40:12",
+  "time" : "2026-11-02 11:30:14",
   "params" : {
     "chunks" : 14,
     "chunkChars" : 500,
@@ -7,7 +7,7 @@
     "topK" : 4,
     "minScore" : 0.4,
     "embedModel" : "text-embedding-v4",
-    "indexModifiedMillis" : 1793241167923,
+    "indexModifiedMillis" : 1793349322237,
     "indexSizeBytes" : 183535
   },
   "metrics" : {
@@ -16,14 +16,14 @@
     "recallPercent" : 100.0,
     "mrr" : 0.9,
     "negTotal" : 5,
-    "negRejected" : 2
+    "negRejected" : 5
   },
   "cases" : [ {
     "question" : "为什么要切片",
     "negative" : false,
     "expected" : "rag-notes.md:9",
     "rank" : 1,
-    "topScore" : 0.767,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "rag-notes.md:9-9"
   }, {
@@ -31,7 +31,7 @@
     "negative" : false,
     "expected" : "rag-notes.md:13",
     "rank" : 1,
-    "topScore" : 0.7879,
+    "topScore" : 0.0325,
     "ok" : true,
     "top1" : "rag-notes.md:13-15"
   }, {
@@ -39,7 +39,7 @@
     "negative" : false,
     "expected" : "rag-notes.md:19",
     "rank" : 1,
-    "topScore" : 0.6129,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "rag-notes.md:19-19"
   }, {
@@ -47,7 +47,7 @@
     "negative" : false,
     "expected" : "rag-notes.md:23",
     "rank" : 1,
-    "topScore" : 0.6091,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "rag-notes.md:23-25"
   }, {
@@ -55,7 +55,7 @@
     "negative" : false,
     "expected" : "rag-notes.md:25",
     "rank" : 2,
-    "topScore" : 0.6394,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "rag-notes.md:5-5"
   }, {
@@ -63,7 +63,7 @@
     "negative" : false,
     "expected" : "redis-cache.md:5",
     "rank" : 1,
-    "topScore" : 0.7947,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "redis-cache.md:5-7"
   }, {
@@ -71,7 +71,7 @@
     "negative" : false,
     "expected" : "redis-cache.md:7",
     "rank" : 1,
-    "topScore" : 0.7015,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "redis-cache.md:5-7"
   }, {
@@ -79,7 +79,7 @@
     "negative" : false,
     "expected" : "redis-cache.md:15",
     "rank" : 1,
-    "topScore" : 0.8202,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "redis-cache.md:15-15"
   }, {
@@ -87,7 +87,7 @@
     "negative" : false,
     "expected" : "redis-cache.md:11",
     "rank" : 1,
-    "topScore" : 0.6468,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "redis-cache.md:11-11"
   }, {
@@ -95,7 +95,7 @@
     "negative" : false,
     "expected" : "redis-cache.md:19",
     "rank" : 1,
-    "topScore" : 0.8047,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "redis-cache.md:19-19"
   }, {
@@ -103,7 +103,7 @@
     "negative" : false,
     "expected" : "java-concurrency.md:5",
     "rank" : 1,
-    "topScore" : 0.8073,
+    "topScore" : 0.0325,
     "ok" : true,
     "top1" : "java-concurrency.md:5-5"
   }, {
@@ -111,7 +111,7 @@
     "negative" : false,
     "expected" : "java-concurrency.md:9",
     "rank" : 1,
-    "topScore" : 0.7529,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "java-concurrency.md:9-9"
   }, {
@@ -119,7 +119,7 @@
     "negative" : false,
     "expected" : "java-concurrency.md:13",
     "rank" : 1,
-    "topScore" : 0.8073,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "java-concurrency.md:13-15"
   }, {
@@ -127,7 +127,7 @@
     "negative" : false,
     "expected" : "java-concurrency.md:19",
     "rank" : 1,
-    "topScore" : 0.7343,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "java-concurrency.md:19-19"
   }, {
@@ -135,7 +135,7 @@
     "negative" : true,
     "expected" : "",
     "rank" : 0,
-    "topScore" : 0.2365,
+    "topScore" : 0.0164,
     "ok" : true,
     "top1" : "java-concurrency.md:13-15"
   }, {
@@ -143,15 +143,15 @@
     "negative" : true,
     "expected" : "",
     "rank" : 0,
-    "topScore" : 0.4347,
-    "ok" : false,
-    "top1" : "java-concurrency.md:19-19"
+    "topScore" : 0.0323,
+    "ok" : true,
+    "top1" : "redis-cache.md:11-11"
   }, {
     "question" : "Kubernetes 的 Pod 怎么扩容",
     "negative" : true,
     "expected" : "",
     "rank" : 0,
-    "topScore" : 0.387,
+    "topScore" : 0.0164,
     "ok" : true,
     "top1" : "redis-cache.md:15-15"
   }, {
@@ -159,55 +159,55 @@
     "negative" : true,
     "expected" : "",
     "rank" : 0,
-    "topScore" : 0.4504,
-    "ok" : false,
+    "topScore" : 0.0164,
+    "ok" : true,
     "top1" : "redis-cache.md:11-11"
   }, {
     "question" : "为啥不能把整篇文档直接丢给模型",
     "negative" : false,
     "expected" : "rag-notes.md:9",
-    "rank" : 2,
-    "topScore" : 0.6578,
+    "rank" : 1,
+    "topScore" : 0.0325,
     "ok" : true,
-    "top1" : "rag-notes.md:23-25"
+    "top1" : "rag-notes.md:9-9"
   }, {
     "question" : "RAG 里 chunk 一般切多大",
     "negative" : false,
     "expected" : "rag-notes.md:13",
-    "rank" : 1,
-    "topScore" : 0.6987,
+    "rank" : 2,
+    "topScore" : 0.0318,
     "ok" : true,
-    "top1" : "rag-notes.md:13-15"
+    "top1" : "rag-notes.md:5-5"
   }, {
     "question" : "相邻两块为啥要重叠一部分",
     "negative" : false,
     "expected" : "rag-notes.md:13",
     "rank" : 1,
-    "topScore" : 0.5478,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "rag-notes.md:13-15"
   }, {
     "question" : "chunk 设成 800 有什么坏处",
     "negative" : false,
     "expected" : "rag-notes.md:13",
-    "rank" : 1,
-    "topScore" : 0.5738,
+    "rank" : 2,
+    "topScore" : 0.032,
     "ok" : true,
-    "top1" : "rag-notes.md:13-15"
+    "top1" : "rag-notes.md:9-9"
   }, {
     "question" : "检索不到内容，一般先怀疑哪些原因",
     "negative" : false,
     "expected" : "rag-notes.md:23",
     "rank" : 1,
-    "topScore" : 0.5915,
+    "topScore" : 0.0323,
     "ok" : true,
     "top1" : "rag-notes.md:23-25"
   }, {
     "question" : "并发一上来就报线程耗尽，可能是什么原因",
     "negative" : false,
     "expected" : "java-concurrency.md:5",
-    "rank" : 4,
-    "topScore" : 0.6623,
+    "rank" : 3,
+    "topScore" : 0.0323,
     "ok" : true,
     "top1" : "java-concurrency.md:23-23"
   }, {
@@ -215,7 +215,7 @@
     "negative" : false,
     "expected" : "java-concurrency.md:23",
     "rank" : 1,
-    "topScore" : 0.7961,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "java-concurrency.md:23-23"
   }, {
@@ -223,7 +223,7 @@
     "negative" : false,
     "expected" : "java-concurrency.md:15",
     "rank" : 1,
-    "topScore" : 0.7455,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "java-concurrency.md:13-15"
   }, {
@@ -231,7 +231,7 @@
     "negative" : false,
     "expected" : "redis-cache.md:11,redis-cache.md:15",
     "rank" : 1,
-    "topScore" : 0.8081,
+    "topScore" : 0.0328,
     "ok" : true,
     "top1" : "redis-cache.md:11-11"
   }, {
@@ -239,8 +239,8 @@
     "negative" : true,
     "expected" : "",
     "rank" : 0,
-    "topScore" : 0.5487,
-    "ok" : false,
+    "topScore" : 0.0328,
+    "ok" : true,
     "top1" : "redis-cache.md:15-15"
   } ]
 }

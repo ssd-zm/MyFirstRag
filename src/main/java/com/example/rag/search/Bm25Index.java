@@ -2,7 +2,14 @@ package com.example.rag.search;
 
 import com.example.rag.store.Chunk;
 import com.example.rag.store.Scored;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +27,8 @@ public final class Bm25Index {
     private static final double K1 = 1.2;
     // b：长度归一化强度。0 不惩罚长切片，1 完全按长度折算。0.75 是经典默认值
     private static final double B = 0.75;
+    // JSON 读写工具，static 表示整个类共用一份
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     // 每个切片的 term -> 出现次数，下标和 chunks 一一对应
     private final List<Map<String, Integer>> docTerms = new ArrayList<>();
@@ -92,5 +101,100 @@ public final class Bm25Index {
         // 分数从高到低，截取前 topK
         results.sort((a, b2) -> Double.compare(b2.score(), a.score()));
         return results.size() > topK ? new ArrayList<>(results.subList(0, topK)) : results;
+    }
+
+    // ---------- 持久化: 和向量索引一起存，二次启动不重建 ----------
+
+    public void save(Path file) {
+        // 最外层对象：chunks 数组 + docTerms 数组 + df map + avgDl
+        ObjectNode root = MAPPER.createObjectNode();
+
+        // chunks：每条切片完整存一份，和向量索引的格式保持一致
+        ArrayNode chunkArr = root.putArray("chunks");
+        for (Chunk c : chunks) {
+            ObjectNode n = chunkArr.addObject();
+            n.put("id", c.id());
+            n.put("sourcePath", c.sourcePath());
+            n.put("lineFrom", c.lineFrom());
+            n.put("lineTo", c.lineTo());
+            n.put("text", c.text());
+            // BM25 不需要向量字段，但存着也无妨，保持和 VectorStore 同一套结构
+            if (c.vector() != null) {
+                ArrayNode v = n.putArray("vector");
+                for (float x : c.vector()) v.add(x);
+            }
+        }
+
+        // docTerms：每个切片的 term -> 词频，下标和 chunks 对应
+        ArrayNode dtArr = root.putArray("docTerms");
+        for (Map<String, Integer> tf : docTerms) {
+            ObjectNode m = dtArr.addObject();
+            for (Map.Entry<String, Integer> e : tf.entrySet()) {
+                m.put(e.getKey(), e.getValue());
+            }
+        }
+
+        // df：每个 term 出现在多少个切片里
+        ObjectNode dfObj = root.putObject("df");
+        for (Map.Entry<String, Integer> e : df.entrySet()) {
+            dfObj.put(e.getKey(), e.getValue());
+        }
+
+        // avgDl：平均切片长度
+        root.put("avgDl", avgDl);
+
+        try {
+            MAPPER.writeValue(file.toFile(), root);
+        } catch (IOException e) {
+            throw new IllegalStateException("保存 BM25 索引失败: " + e.getMessage(), e);
+        }
+    }
+
+    public static Bm25Index load(Path file) {
+        Bm25Index idx = new Bm25Index();
+        if (!Files.exists(file)) return idx;
+        try {
+            JsonNode root = MAPPER.readTree(file.toFile());
+
+            // 读 chunks
+            for (JsonNode n : root.withArray("chunks")) {
+                JsonNode vec = n.path("vector");
+                float[] v = null;
+                if (vec.isArray()) {
+                    v = new float[vec.size()];
+                    for (int i = 0; i < v.length; i++) v[i] = (float) vec.get(i).asDouble();
+                }
+                idx.chunks.add(new Chunk(
+                        n.path("id").asText(),
+                        n.path("sourcePath").asText(),
+                        n.path("lineFrom").asInt(),
+                        n.path("lineTo").asInt(),
+                        n.path("text").asText(),
+                        v));
+            }
+
+            // 读 docTerms
+            for (JsonNode n : root.withArray("docTerms")) {
+                Map<String, Integer> tf = new HashMap<>();
+                n.fields().forEachRemaining(e -> tf.put(e.getKey(), e.getValue().asInt()));
+                idx.docTerms.add(tf);
+            }
+
+            // 读 df
+            JsonNode dfNode = root.path("df");
+            dfNode.fields().forEachRemaining(e -> idx.df.put(e.getKey(), e.getValue().asInt()));
+
+            // 读 avgDl
+            idx.avgDl = root.path("avgDl").asDouble(1.0);
+
+        } catch (IOException e) {
+            throw new IllegalStateException("加载 BM25 索引失败: " + e.getMessage(), e);
+        }
+        return idx;
+    }
+
+    public int size() {
+        // 索引里一共有多少条切片
+        return chunks.size();
     }
 }

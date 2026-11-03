@@ -2,6 +2,7 @@ package com.example.rag.eval;
 
 import com.example.rag.llm.EmbeddingClient;
 import com.example.rag.rag.Retriever;
+import com.example.rag.search.Bm25Index;
 import com.example.rag.store.Scored;
 import com.example.rag.store.VectorStore;
 
@@ -63,10 +64,22 @@ public final class EvalRunner {
 
     private final EmbeddingClient embedder;
     private final VectorStore store;
+    // BM25 索引，HYBRID 和 BM25_ONLY 模式下必须传入
+    private final Bm25Index bm25;
+    // 当前检索模式
+    private final Retriever.SearchMode mode;
 
+    /** 向后兼容构造：默认 VECTOR_ONLY，只需要 embedder + store */
     public EvalRunner(EmbeddingClient embedder, VectorStore store) {
+        this(embedder, store, null, Retriever.SearchMode.VECTOR_ONLY);
+    }
+
+    /** 全功能构造：指定检索模式和可选的 BM25 索引 */
+    public EvalRunner(EmbeddingClient embedder, VectorStore store, Bm25Index bm25, Retriever.SearchMode mode) {
         this.embedder = embedder;
         this.store = store;
+        this.bm25 = bm25;
+        this.mode = mode;
     }
 
     // 读测评集文件，空行和 # 开头的行直接跳过
@@ -99,7 +112,8 @@ public final class EvalRunner {
 
     // 逐题检索，记录期望文件排在第几
     public List<Outcome> run(List<Question> questions, int topK) {
-        Retriever retriever = new Retriever(embedder, store);
+        // 用指定模式的检索器：vector/bm25/hybrid
+        Retriever retriever = new Retriever(embedder, store, bm25, mode);
         List<Outcome> outcomes = new ArrayList<>(questions.size());
         for (Question question : questions) {
             List<Scored> hits = retriever.retrieve(question.text(), topK);
@@ -185,8 +199,8 @@ public final class EvalRunner {
     public void printReport(List<Outcome> outcomes, int topK, double minScore) {
         Summary s = summarize(outcomes, minScore);
 
-        System.out.printf("=== 测评集 %d 题，topK=%d，当前门槛 minScore=%.2f ===%n",
-                outcomes.size(), topK, minScore);
+        System.out.printf("=== 测评集 %d 题，topK=%d，模式=%s，门槛 minScore=%.2f ===%n",
+                outcomes.size(), topK, mode.name(), minScore);
         for (int i = 0; i < outcomes.size(); i++) {
             Outcome o = outcomes.get(i);
             Question q = o.question();
